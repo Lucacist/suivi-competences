@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { db } from '@/db';
 import { students } from '@/db/schema';
 import Link from 'next/link';

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { db } from '@/db';
 import { students, results, criteria, sessions } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -10,6 +11,7 @@ import { ArrowLeft } from 'lucide-react';
 interface PageProps {
   params: Promise<{ id: string }>;
 }
+
 
 export default async function StudentDetailPage(props: PageProps) {
   const params = await props.params;
