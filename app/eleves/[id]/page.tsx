@@ -82,7 +82,7 @@ export default async function StudentDetailPage(props: PageProps) {
 
   // --- AFFICHAGE ---
   return (
-    <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
+    <div className="container mx-auto p-6 bg-gray-50 rounded-xl min-h-screen">
       <Link href="/eleves" className="inline-flex items-center text-gray-500 hover:text-blue-600 mb-4 transition-colors">
         <ArrowLeft size={16} className="mr-2" /> Retour à la liste
       </Link>
