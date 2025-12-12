@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react';
-import { uploadCSV } from '@/app/actions'; // Assure-toi que ce fichier existe !
+import { uploadCSV } from '@/app/actions'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,22 +13,33 @@ export default function UploadForm() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
-  async function handleSubmit(formData: FormData) {
-    setStatus('loading');
+  // On change ici : on prend l'événement (event) pour bloquer le formulaire immédiatement
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); // 1. Bloque le rechargement standard
+    
+    // Sécurité anti-double clic si le state n'a pas encore update
+    if (status === 'loading') return; 
+
+    setStatus('loading'); // 2. Passe le bouton en gris immédiatement
     setMessage('');
 
+    const form = e.currentTarget; // Stocker la référence au formulaire
+    const formData = new FormData(form);
+
     try {
-      // Appel de la Server Action
       const result = await uploadCSV(formData);
 
       if (result.success) {
         setStatus('success');
         setMessage(result.message || 'Import réussi !');
+        // Reset du formulaire visuel (optionnel)
+        form.reset();
       } else {
         setStatus('error');
         setMessage(result.message || 'Une erreur est survenue.');
       }
-    } catch (e) {
+    } catch (err) {
+      console.error('Erreur lors de l\'import:', err);
       setStatus('error');
       setMessage("Erreur technique lors de l'envoi.");
     }
@@ -46,7 +57,8 @@ export default function UploadForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={handleSubmit} className="space-y-4">
+        {/* On utilise onSubmit au lieu de action pour un contrôle total */}
+        <form onSubmit={handleSubmit} className="space-y-4">
           
           <div className="grid w-full items-center gap-1.5">
             <Input 
@@ -55,6 +67,7 @@ export default function UploadForm() {
               type="file" 
               accept=".csv" 
               required 
+              // Désactive l'input pendant le chargement
               disabled={status === 'loading'}
             />
           </div>
