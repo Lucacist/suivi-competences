@@ -35,6 +35,7 @@ export default async function StudentDetailPage(props: PageProps) {
     criteriaCompetence: criteria.competence,
     criteriaTaskBlock: criteria.taskBlock,
     sessionLabel: sessions.label,
+    sessionId: sessions.id,
   })
   .from(results)
   .leftJoin(criteria, eq(results.criteriaId, criteria.id))
@@ -61,26 +62,57 @@ export default async function StudentDetailPage(props: PageProps) {
     score: Math.round((statsByPole[pole].total / statsByPole[pole].count) * 10) / 10,
   }));
 
-  // --- CALCUL 2 : Données pour les BÂTONS (Par Bloc de Tâche) ---
-  const statsByBlock: Record<string, { total: number; count: number; pole: string }> = {};
+  // --- CALCUL 2 : Données pour les BÂTONS (Par Bloc de Tâche ET Session) ---
+  // Grouper par bloc ET session (en utilisant l'ID de session pour être sûr de les différencier)
+  const groupedData: Record<string, Record<string, { total: number; count: number; pole: string; sessionLabel: string }>> = {};
 
   studentResults.forEach((res) => {
-    const blockName = res.criteriaTaskBlock || 'Autre'; 
+    const blockName = res.criteriaTaskBlock || 'Autre';
+    const sessionKey = `${res.sessionLabel} (#${res.sessionId})`; // Combinaison label + ID
     const poleName = res.criteriaPole || 'Divers';
     const val = res.value || 0;
 
-    if (!statsByBlock[blockName]) {
-      statsByBlock[blockName] = { total: 0, count: 0, pole: poleName };
+    if (!groupedData[blockName]) {
+      groupedData[blockName] = {};
     }
-    statsByBlock[blockName].total += val;
-    statsByBlock[blockName].count += 1;
+    
+    if (!groupedData[blockName][sessionKey]) {
+      groupedData[blockName][sessionKey] = { total: 0, count: 0, pole: poleName, sessionLabel: res.sessionLabel || 'Session inconnue' };
+    }
+    
+    groupedData[blockName][sessionKey].total += val;
+    groupedData[blockName][sessionKey].count += 1;
   });
 
-  const barData = Object.keys(statsByBlock).map((blockName) => ({
-    name: blockName,
-    score: Math.round((statsByBlock[blockName].total / statsByBlock[blockName].count) * 10) / 10,
-    pole: statsByBlock[blockName].pole,
-  }));
+  // Récupérer toutes les sessions uniques
+  const allSessions = new Set<string>();
+  for (const blockName in groupedData) {
+    for (const sessionName in groupedData[blockName]) {
+      allSessions.add(sessionName);
+    }
+  }
+  const sessionsList = Array.from(allSessions);
+
+  // Transformer en format "wide" : un objet par bloc avec une propriété par session
+  const barDataBySession: any[] = [];
+  for (const blockName in groupedData) {
+    const blockData: any = { 
+      name: blockName,
+      pole: '' // On va le récupérer de la première session disponible
+    };
+    
+    for (const sessionName in groupedData[blockName]) {
+      const stats = groupedData[blockName][sessionName];
+      blockData[sessionName] = Math.round((stats.total / stats.count) * 10) / 10;
+      if (!blockData.pole) blockData.pole = stats.pole; // Prendre le pôle de la première session
+    }
+    
+    barDataBySession.push(blockData);
+  }
+
+  // Debug: Afficher les données dans la console
+  console.log('Sessions détectées:', sessionsList);
+  console.log('Données du graphique:', barDataBySession);
 
   // --- AFFICHAGE ---
   return (
@@ -110,7 +142,7 @@ export default async function StudentDetailPage(props: PageProps) {
 
         {/* Bar Chart (Task Blocks) */}
         <div className="flex flex-col h-full">
-           <StudentBarChart data={barData} />
+           <StudentBarChart data={barDataBySession} sessions={sessionsList} />
         </div>
       </div>
 
