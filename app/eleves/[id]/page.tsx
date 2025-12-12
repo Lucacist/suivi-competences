@@ -62,14 +62,15 @@ export default async function StudentDetailPage(props: PageProps) {
   }));
 
   // --- CALCUL 2 : Données pour les BÂTONS (Par Bloc de Tâche) ---
-  const statsByBlock: Record<string, { total: number; count: number }> = {};
+  const statsByBlock: Record<string, { total: number; count: number; pole: string }> = {};
 
   studentResults.forEach((res) => {
     const blockName = res.criteriaTaskBlock || 'Autre'; 
+    const poleName = res.criteriaPole || 'Divers';
     const val = res.value || 0;
 
     if (!statsByBlock[blockName]) {
-      statsByBlock[blockName] = { total: 0, count: 0 };
+      statsByBlock[blockName] = { total: 0, count: 0, pole: poleName };
     }
     statsByBlock[blockName].total += val;
     statsByBlock[blockName].count += 1;
@@ -78,6 +79,7 @@ export default async function StudentDetailPage(props: PageProps) {
   const barData = Object.keys(statsByBlock).map((blockName) => ({
     name: blockName,
     score: Math.round((statsByBlock[blockName].total / statsByBlock[blockName].count) * 10) / 10,
+    pole: statsByBlock[blockName].pole,
   }));
 
   // --- AFFICHAGE ---

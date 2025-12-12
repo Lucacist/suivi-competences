@@ -7,10 +7,39 @@ import {
 interface DataPoint {
   name: string;
   score: number;
+  pole?: string;
 }
 
 export function StudentBarChart({ data }: { data: DataPoint[] }) {
   if (!data || data.length === 0) return <div className="p-4 text-center text-gray-500">Pas assez de données.</div>;
+
+  // Fonction pour obtenir la couleur en fonction du pôle et du score
+  const getColor = (pole: string | undefined, score: number): string => {
+    // Déterminer la couleur de base selon le pôle
+    let baseColors: { light: string; medium: string; dark: string };
+    
+    // Vérifier si pole existe
+    const poleStr = pole || '';
+    
+    if (poleStr.includes('PÔLE 1') || poleStr.includes('Pôle 1')) {
+      // Vert
+      baseColors = { light: '#86efac', medium: '#22c55e', dark: '#15803d' };
+    } else if (poleStr.includes('PÔLE 2') || poleStr.includes('Pôle 2')) {
+      // Bleu
+      baseColors = { light: '#93c5fd', medium: '#3b82f6', dark: '#1e40af' };
+    } else if (poleStr.includes('PÔLE 3') || poleStr.includes('Pôle 3')) {
+      // Orange
+      baseColors = { light: '#fdba74', medium: '#f97316', dark: '#c2410c' };
+    } else {
+      // Gris par défaut
+      baseColors = { light: '#d1d5db', medium: '#9ca3af', dark: '#4b5563' };
+    }
+
+    // Déterminer l'intensité selon le score
+    if (score < 40) return baseColors.light;      // Score faible = couleur claire
+    if (score < 70) return baseColors.medium;     // Score moyen = couleur moyenne
+    return baseColors.dark;                       // Score élevé = couleur foncée
+  };
 
   // 1. CALCUL DE LA HAUTEUR DYNAMIQUE
   // On compte 60px de hauteur par barre pour que ce soit aéré + 50px de marge
@@ -52,7 +81,7 @@ export function StudentBarChart({ data }: { data: DataPoint[] }) {
 
             <Bar dataKey="score" radius={[0, 4, 4, 0]} barSize={30}>
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.score < 50 ? '#f97316' : '#3b82f6'} />
+                <Cell key={`cell-${index}`} fill={getColor(entry.pole, entry.score)} />
               ))}
             </Bar>
           </BarChart>
