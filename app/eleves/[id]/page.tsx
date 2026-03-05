@@ -1,47 +1,28 @@
-export const dynamic = 'force-dynamic';
-import { db } from '@/db';
-import { students, results, criteria, sessions } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { notFound } from 'next/navigation';
+'use client';
+
+import { useParams } from 'next/navigation';
+import { useData } from '@/lib/DataContext';
 import { StudentRadarChart } from '@/components/StudentRadarChart';
 import { StudentBarChart } from '@/components/StudentBarChart';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
+export default function StudentDetailPage() {
+  const params = useParams();
+  const studentId = parseInt(params.id as string);
+  const { getStudent, getStudentResults } = useData();
 
+  if (isNaN(studentId)) {
+    return <div className="container mx-auto p-6 text-center text-gray-500">Élève introuvable.</div>;
+  }
 
-export default async function StudentDetailPage(props: PageProps) {
-  const params = await props.params;
-  const studentId = parseInt(params.id);
-  
-  if (isNaN(studentId)) return notFound();
+  const student = getStudent(studentId);
 
-  // 1. Récupérer l'élève
-  const student = await db.query.students.findFirst({
-    where: eq(students.id, studentId),
-  });
+  if (!student) {
+    return <div className="container mx-auto p-6 text-center text-gray-500">Élève introuvable.</div>;
+  }
 
-  if (!student) return notFound();
-
-  // 2. Récupérer les résultats
-  const studentResults = await db.select({
-    id: results.id,
-    value: results.value,
-    criteriaLabel: criteria.label,
-    criteriaPole: criteria.pole,
-    criteriaCompetence: criteria.competence,
-    criteriaTaskBlock: criteria.taskBlock,
-    sessionLabel: sessions.label,
-    sessionId: sessions.id,
-  })
-  .from(results)
-  .leftJoin(criteria, eq(results.criteriaId, criteria.id))
-  .leftJoin(sessions, eq(results.sessionId, sessions.id))
-  .where(eq(results.studentId, studentId))
-  .orderBy(desc(results.id));
+  const studentResults = getStudentResults(studentId);
 
   // --- CALCUL 1 : Données pour le RADAR (Par Pôle) ---
   const statsByPole: Record<string, { total: number; count: number }> = {};
@@ -63,12 +44,11 @@ export default async function StudentDetailPage(props: PageProps) {
   }));
 
   // --- CALCUL 2 : Données pour les BÂTONS (Par Bloc de Tâche ET Session) ---
-  // Grouper par bloc ET session (en utilisant l'ID de session pour être sûr de les différencier)
   const groupedData: Record<string, Record<string, { total: number; count: number; pole: string; sessionLabel: string }>> = {};
 
   studentResults.forEach((res) => {
     const blockName = res.criteriaTaskBlock || 'Autre';
-    const sessionKey = `${res.sessionLabel} (#${res.sessionId})`; // Combinaison label + ID
+    const sessionKey = `${res.sessionLabel} (#${res.sessionId})`;
     const poleName = res.criteriaPole || 'Divers';
     const val = res.value || 0;
 
@@ -93,26 +73,22 @@ export default async function StudentDetailPage(props: PageProps) {
   }
   const sessionsList = Array.from(allSessions);
 
-  // Transformer en format "wide" : un objet par bloc avec une propriété par session
-  const barDataBySession: any[] = [];
+  // Transformer en format "wide"
+  const barDataBySession: { name: string; pole: string; [key: string]: string | number }[] = [];
   for (const blockName in groupedData) {
-    const blockData: any = { 
+    const blockData: { name: string; pole: string; [key: string]: string | number } = { 
       name: blockName,
-      pole: '' // On va le récupérer de la première session disponible
+      pole: '',
     };
     
     for (const sessionName in groupedData[blockName]) {
       const stats = groupedData[blockName][sessionName];
       blockData[sessionName] = Math.round((stats.total / stats.count) * 10) / 10;
-      if (!blockData.pole) blockData.pole = stats.pole; // Prendre le pôle de la première session
+      if (!blockData.pole) blockData.pole = stats.pole;
     }
     
     barDataBySession.push(blockData);
   }
-
-  // Debug: Afficher les données dans la console
-  console.log('Sessions détectées:', sessionsList);
-  console.log('Données du graphique:', barDataBySession);
 
   // --- AFFICHAGE ---
   return (
@@ -135,7 +111,7 @@ export default async function StudentDetailPage(props: PageProps) {
            <div className="mt-4 bg-white p-4 rounded-lg shadow-sm border">
             <h3 className="font-semibold text-gray-700 mb-2">Synthèse globale</h3>
             <p className="text-sm text-gray-600">
-              L'élève a été évalué sur <strong>{Object.keys(statsByPole).length}</strong> pôles de compétences.
+              L&apos;élève a été évalué sur <strong>{Object.keys(statsByPole).length}</strong> pôles de compétences.
             </p>
           </div>
         </div>
@@ -163,8 +139,8 @@ export default async function StudentDetailPage(props: PageProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {studentResults.map((res, index) => (
-                <tr key={index} className="hover:bg-gray-50 transition-colors">
+              {studentResults.map((res) => (
+                <tr key={res.id} className="hover:bg-gray-50 transition-colors">
                   <td className="p-4">
                     <div className="font-medium text-gray-900">{res.criteriaTaskBlock || 'Général'}</div>
                     <div className="text-xs text-gray-500 mt-0.5">{res.criteriaCompetence} - {res.criteriaLabel}</div>

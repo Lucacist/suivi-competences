@@ -1,8 +1,8 @@
-// components/UploadForm.tsx
-'use client'
+'use client';
 
 import { useState } from 'react';
-import { uploadCSV } from '@/app/actions'; 
+import { useData } from '@/lib/DataContext';
+import { parseCSVFile } from '@/lib/parseCSV';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,36 +12,42 @@ import { UploadCloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 export default function UploadForm() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const { data, importCSV } = useData();
 
-  // On change ici : on prend l'événement (event) pour bloquer le formulaire immédiatement
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); // 1. Bloque le rechargement standard
-    
-    // Sécurité anti-double clic si le state n'a pas encore update
-    if (status === 'loading') return; 
+    e.preventDefault();
+    if (status === 'loading') return;
 
-    setStatus('loading'); // 2. Passe le bouton en gris immédiatement
+    setStatus('loading');
     setMessage('');
 
-    const form = e.currentTarget; // Stocker la référence au formulaire
-    const formData = new FormData(form);
+    const form = e.currentTarget;
+    const fileInput = form.elements.namedItem('file') as HTMLInputElement;
+    const file = fileInput?.files?.[0];
+
+    if (!file) {
+      setStatus('error');
+      setMessage('Aucun fichier sélectionné.');
+      return;
+    }
 
     try {
-      const result = await uploadCSV(formData);
+      const text = await file.text();
+      const result = parseCSVFile(text, data.students);
 
-      if (result.success) {
-        setStatus('success');
-        setMessage(result.message || 'Import réussi !');
-        // Reset du formulaire visuel (optionnel)
-        form.reset();
-      } else {
+      if ('error' in result) {
         setStatus('error');
-        setMessage(result.message || 'Une erreur est survenue.');
+        setMessage(result.error);
+      } else {
+        importCSV(result);
+        setStatus('success');
+        setMessage(`Import réussi ! ${result.students.length} nouveaux élèves, ${result.results.length} résultats.`);
+        form.reset();
       }
     } catch (err) {
-      console.error('Erreur lors de l\'import:', err);
+      console.error("Erreur lors de l'import:", err);
       setStatus('error');
-      setMessage("Erreur technique lors de l'envoi.");
+      setMessage("Erreur technique lors du parsing.");
     }
   }
 
@@ -57,7 +63,6 @@ export default function UploadForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* On utilise onSubmit au lieu de action pour un contrôle total */}
         <form onSubmit={handleSubmit} className="space-y-4">
           
           <div className="grid w-full items-center gap-1.5">
@@ -67,7 +72,6 @@ export default function UploadForm() {
               type="file" 
               accept=".csv" 
               required 
-              // Désactive l'input pendant le chargement
               disabled={status === 'loading'}
             />
           </div>
@@ -79,11 +83,10 @@ export default function UploadForm() {
                 Traitement en cours...
               </>
             ) : (
-              'Lancer l\'importation'
+              "Lancer l'importation"
             )}
           </Button>
 
-          {/* Messages de feedback */}
           {status === 'success' && (
             <Alert variant="default" className="bg-green-50 text-green-900 border-green-200">
               <CheckCircle className="h-4 w-4 text-green-600" />

@@ -1,4 +1,3 @@
-// app/page.tsx
 import UploadForm from '@/components/UploadForm';
 
 export default function Home() {
@@ -13,7 +12,7 @@ export default function Home() {
       <UploadForm />
 
       <div className="mt-12 text-center text-slate-500">
-        <p>Système connecté à la base de données locale.</p>
+        <p>Les données sont stockées temporairement. Elles seront supprimées en quittant le site.</p>
       </div>
     </main>
   );
